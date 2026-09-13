@@ -21,7 +21,7 @@ class Player {
         this.speed = 300; // pixels per second
         this.vx = 0;
         this.vy = 0;
-        this.fireRate = 100; // milliseconds
+        this.fireRate = 1000; // milliseconds
         this.lastFireTime = 0;
         this.dashCooldown = 0;
         this.dashDuration = 0;
@@ -293,7 +293,7 @@ class Enemy {
         this.slowTimer = 0;
         this.slowAmount = 0;
         this.burnTimer = 0;
-        this.burnDamageTimer = 0;
+        this.burnDamageTimer = 0.5;
         this.statusEffects = [];
     }
 
