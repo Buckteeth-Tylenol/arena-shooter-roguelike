@@ -709,6 +709,10 @@ function checkCollisions() {
                         const angle = Math.atan2(nearbyEnemy.y - enemy.y, nearbyEnemy.x - enemy.x);
                         nearbyEnemy.knockback.x = Math.cos(angle) * 150;
                         nearbyEnemy.knockback.y = Math.sin(angle) * 150;
+                        // Check if Arc Lightning killed this enemy
+                        if (nearbyEnemy.health <= 0) {
+                            nearbyEnemy.die();
+                        }
                     });
                 }
 
@@ -751,6 +755,10 @@ function checkCollisions() {
             // Thorn Plating: Enemies take damage when touching you
             if (player.hasUpgrade('Thorn Plating')) {
                 enemy.health -= 2 * 0.016;
+                // Check if Thorn Plating killed the enemy
+                if (enemy.health <= 0) {
+                    enemy.die();
+                }
             }
         }
     }
