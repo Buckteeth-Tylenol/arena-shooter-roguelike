@@ -295,6 +295,7 @@ class Enemy {
         this.burnTimer = 0;
         this.burnDamageTimer = 0.5;
         this.statusEffects = [];
+        this._isDead = false;
     }
 
     update(dt, player) {
@@ -344,13 +345,17 @@ class Enemy {
             if (this.burnDamageTimer <= 0) {
                 this.health -= 2;
                 this.burnDamageTimer = 0.5;
+                if (this.health <= 0) {
+                    this.die();
+                    return;
+                }
             }
         }
     }
 
     draw(ctx) {
         // Color based on health
-        const healthPercent = this.health / this.maxHealth;
+        const healthPercent = Math.max(0, Math.min(this.health, this.maxHealth)) / this.maxHealth;
         let hue = healthPercent * 120;
         
         // Burning
@@ -368,6 +373,73 @@ class Enemy {
         ctx.fillRect(this.x - this.size, this.y - this.size - 5, this.size * 2, 3);
         ctx.fillStyle = '#00ff00';
         ctx.fillRect(this.x - this.size, this.y - this.size - 5, (this.size * 2) * healthPercent, 3);
+    }
+
+    // Centralized death handling
+    die() {
+        if (this._isDead) return;
+        this._isDead = true;
+
+        const wasStatusAffected = this.statusEffects.length > 0;
+
+        // Square Fragmentation: Bullets split into 4 tiny shards on impact
+        if (player.hasUpgrade('Square Fragmentation')) {
+            for (let k = 0; k < 4; k++) {
+                const shardAngle = (Math.PI * 2 / 4) * k;
+                const shard = new Bullet(this.x, this.y, shardAngle);
+                shard.speed = 300;
+                shard.radius = 2;
+                shard.damage = 3;
+                shard.lifetime = 2;
+                shard.vx = Math.cos(shardAngle) * shard.speed;
+                shard.vy = Math.sin(shardAngle) * shard.speed;
+                bullets.push(shard);
+            }
+        }
+
+        // Gravity Trap: Defeated enemies slow nearby enemies
+        if (player.hasUpgrade('Gravity Trap')) {
+            gravityTraps.push({
+                x: this.x,
+                y: this.y,
+                lifetime: 5,
+                age: 0
+            });
+        }
+
+        // Magnetic Pull: Defeated enemies pull nearby enemies
+        if (player.hasUpgrade('Magnetic Pull')) {
+            enemies.forEach(e => {
+                const d = Math.hypot(e.x - this.x, e.y - this.y);
+                if (d < 200 && e !== this) {
+                    const angle = Math.atan2(this.y - e.y, this.x - e.x);
+                    e.knockback.x += Math.cos(angle) * 300;
+                    e.knockback.y += Math.sin(angle) * 300;
+                }
+            });
+        }
+
+        // Combustion Chain: Enemies killed on fire explode
+        if (player.hasUpgrade('Combustion Chain') && this.statusEffects.includes('burning')) {
+            enemies.forEach(e => {
+                const d = Math.hypot(e.x - this.x, e.y - this.y);
+                if (d < 150 && e !== this) {
+                    e.health -= 10;
+                    if (!e.statusEffects.includes('burning')) e.statusEffects.push('burning');
+                }
+            });
+        }
+
+        // Soul Leech: Defeating status-affected enemies heals you
+        if (player.hasUpgrade('Soul Leech') && wasStatusAffected) {
+            player.health = Math.min(player.maxHealth, player.health + 15);
+        }
+
+        // Remove from enemies array
+        const idx = enemies.indexOf(this);
+        if (idx !== -1) enemies.splice(idx, 1);
+
+        gameState.score += 10;
     }
 }
 
@@ -647,64 +719,8 @@ function checkCollisions() {
                 }
 
                 if (enemy.health <= 0) {
-                    // Enemy death logic
-                    const wasStatusAffected = enemy.statusEffects.length > 0;
-
-                    // Square Fragmentation: Bullets split into 4 tiny shards on impact
-                    if (player.hasUpgrade('Square Fragmentation')) {
-                        for (let k = 0; k < 4; k++) {
-                            const shardAngle = (Math.PI * 2 / 4) * k;
-                            const shard = new Bullet(enemy.x, enemy.y, shardAngle);
-                            shard.speed = 300;
-                            shard.radius = 2;
-                            shard.damage = 3;
-                            shard.lifetime = 2;
-                            shard.vx = Math.cos(shardAngle) * shard.speed;
-                            shard.vy = Math.sin(shardAngle) * shard.speed;
-                            bullets.push(shard);
-                        }
-                    }
-
-                    // Gravity Trap: Defeated enemies slow nearby enemies
-                    if (player.hasUpgrade('Gravity Trap')) {
-                        gravityTraps.push({
-                            x: enemy.x,
-                            y: enemy.y,
-                            lifetime: 5,
-                            age: 0
-                        });
-                    }
-
-                    // Magnetic Pull: Defeated enemies pull nearby enemies
-                    if (player.hasUpgrade('Magnetic Pull')) {
-                        enemies.forEach(e => {
-                            const d = Math.hypot(e.x - enemy.x, e.y - enemy.y);
-                            if (d < 200 && e !== enemy) {
-                                const angle = Math.atan2(enemy.y - e.y, enemy.x - e.x);
-                                e.knockback.x += Math.cos(angle) * 300;
-                                e.knockback.y += Math.sin(angle) * 300;
-                            }
-                        });
-                    }
-
-                    // Combustion Chain: Enemies killed on fire explode
-                    if (player.hasUpgrade('Combustion Chain') && enemy.statusEffects.includes('burning')) {
-                        enemies.forEach(e => {
-                            const d = Math.hypot(e.x - enemy.x, e.y - enemy.y);
-                            if (d < 150 && e !== enemy) {
-                                e.health -= 10;
-                                e.statusEffects.push('burning');
-                            }
-                        });
-                    }
-
-                    // Soul Leech: Defeating status-affected enemies heals you
-                    if (player.hasUpgrade('Soul Leech') && wasStatusAffected) {
-                        player.health = Math.min(player.maxHealth, player.health + 15);
-                    }
-
-                    enemies.splice(j, 1);
-                    gameState.score += 10;
+                    // Use centralized death handling
+                    enemy.die();
                     break;
                 }
             }
@@ -751,7 +767,9 @@ function update(dt) {
         player.fire();
     }
 
-    for (let enemy of enemies) {
+    // Iterate backwards so we can safely remove enemies from the array during updates
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
         enemy.update(dt, player);
 
         // Corrosive Acids damage
@@ -760,6 +778,10 @@ function update(dt) {
             if (enemy.corrosionDamageTimer > 0.5) {
                 enemy.health -= 3;
                 enemy.corrosionDamageTimer = 0;
+                if (enemy.health <= 0) {
+                    enemy.die();
+                    continue;
+                }
             }
         }
     }
