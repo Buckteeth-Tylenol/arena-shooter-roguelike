@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arena Shooter Roguelike</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
+        <div id="ui">
+            <div id="stats">
+                <div id="health">❤️ Health: 100/100</div>
+                <div id="wave">🌊 Wave: 1</div>
+                <div id="enemies">👾 Enemies: 0</div>
+                <div id="score">⭐ Score: 0</div>
+            </div>
+            <div id="upgrades" style="display: none;">
+                <h2>Choose an Upgrade</h2>
+                <div id="upgradeCards"></div>
+            </div>
+            <div id="gameOver" style="display: none;">
+                <h2>Game Over</h2>
+                <p id="finalScore"></p>
+                <button onclick="location.reload()">Restart</button>
+            </div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
